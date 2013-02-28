@@ -65,7 +65,7 @@ use work.wishbone_pkg.all;
 --===========================================================================
 entity xwb_ram is
   generic(
-    g_size                  : integer := c_SIZE;  
+    g_size                  : integer := 256;  
     g_init_file             : string  := "";
     g_must_have_init_file   : boolean := false;
     g_slave1_interface_mode : t_wishbone_interface_mode;
@@ -102,7 +102,7 @@ architecture struct of xwb_ram is
 begin
 
 -- RAM memory
-  U_DPRAM : entity work.spram
+  U_DPRAM : generic_spram
     generic map(
       -- standard parameters
       g_data_width               => c_wishbone_data_width,
@@ -112,8 +112,10 @@ begin
       g_addr_conflict_resolution => "read_first"
       )
     port map(
+      rst_n_i => '1',
       clk_i   => clk_sys_i,
       bwe_i   => s_bwea,
+		we_i    => '0',
       a_i     => slave1_i.adr(f_log2_size(g_size)-1 downto 0),                                 
       d_i     => slave1_i.dat,                                  
       q_o     => slave1_o.dat	                                 
