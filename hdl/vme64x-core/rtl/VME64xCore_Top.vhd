@@ -104,26 +104,30 @@
   entity VME64xCore_Top is
     generic(
 	         -- clock period (ns)
-				g_clock          : integer := c_clk_period;    -- 100 MHz 
+				g_clock          : integer := c_clk_period;        -- 100 MHz 
 	         --WB data width:
-				g_wb_data_width  : integer := c_width;         -- must be 32 or 64
+				g_wb_data_width  : integer := c_width;             -- must be 32 or 64
 	         --WB address width:
-				g_wb_addr_width  : integer := c_addr_width;    -- 64 or less
+				g_wb_addr_width  : integer := c_addr_width;        -- 64 or less
 				-- CRAM 
 				g_cram_size      : integer := c_CRAM_SIZE;
 				-- Board ID; each board shall have an unique ID. eg: SVEC_ID = 408.
 				-- loc: 0x33, 0x37, 0x3B, 0x3F   CR space
-				g_BoardID        : integer := c_SVEC_ID;       -- 4 bytes: 0x00000198
+				g_BoardID        : integer := c_SVEC_ID;           -- 4 bytes: 0x00000198
 				-- Manufacturer ID: eg the CERN ID is 0x080030
 				-- loc: 0x27, 0x2B, 0x2F   CR space
-				g_ManufacturerID : integer := c_CERN_ID;       -- 3 bytes: 0x080030
+				g_ManufacturerID : integer := c_CERN_ID;           -- 3 bytes: 0x080030
 				-- Revision ID
 				-- loc: 0x43, 0x47, 0x4B, 0x4F   CR space
-				g_RevisionID     : integer := c_RevisionID;    -- 4 bytes: 0x00000001
+				g_RevisionID     : integer := c_RevisionID;        -- 4 bytes: 0x00000001
 				-- Program ID: this is the firmware ID
 				-- loc: 0x7f    CR space
-				g_ProgramID      : integer := 90               -- 1 byte : 0x5a 
-				-- The default values can be found in the vme64x_pack
+				g_ProgramID      : integer := 90                   -- 1 byte : 0x5a 
+            -- VME base address setting 
+            g_base_addr      : base_addr  := "GEOGRAPHICAL_ADDR"  -- or MECAHNICALLY
+            -- the bus transceiver function e.g. SN74VMEH22501 or SN54LVTH18502A
+            g_vme_buffer     : vme_buffer := "TRUE_TRANSPARENT"    -- or  CLOCKED
+
 	 );
    port(
      clk_i            : in std_logic;              

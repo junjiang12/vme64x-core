@@ -393,6 +393,12 @@ package vme64x_pack is
                                   GET_DATA,
                                   END_INIT
                              );
+   type base_addr is   (         GEOGRAPHICAL_ADDR,
+                                 MECAHNICALLY
+                             );
+   type vme_buffer is  (         TRUE_TRANSPARET,
+                                 CLOCKED
+                             );
 
    type t_FUNC_32b_array is array (0 to 7) of unsigned(31 downto 0);  -- ADER register array
    type t_FUNC_64b_array is array (0 to 7) of unsigned(63 downto 0);  -- AMCAP register array
