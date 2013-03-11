@@ -1,0 +1,57 @@
+###########################################
+
+  NET  M<0>	  LOC = M10;
+  NET  M<1>	  LOC = T10;
+  NET  M<2>	  LOC = M9;
+  NET  M<3>	  LOC = R9;
+  
+  NET  ADD_I<0>	  LOC = L2;
+  NET  ADD_I<1>	  LOC = K1;
+  NET  ADD_I<2>	  LOC = L1;
+  NET  ADD_I<3>	  LOC = K4;
+  NET  ADD_I<4>	  LOC = K2;
+  NET  ADD_I<5>	  LOC = K5;
+  NET  ADD_I<6>	  LOC = K3;
+  NET  ADD_I<7>	  LOC = J4;
+ 
+  NET  ADD_O<0>	  LOC = R4;
+  NET  ADD_O<1>	  LOC = M5;
+  NET  ADD_O<2>	  LOC = R5;
+  NET  ADD_O<3>	  LOC = R6;
+  NET  ADD_O<4>	  LOC = N6;
+  NET  ADD_O<5>	  LOC = R3;
+  NET  ADD_O<6>	  LOC = M6;
+  NET  ADD_O<7>	  LOC = T3;  
+  
+  NET  AM_I<0>	  LOC = G15;
+  NET  AM_I<1>	  LOC = H13;
+  NET  AM_I<2>	  LOC = G16;
+  NET  AM_I<3>	  LOC = H14;
+  NET  AM_I<4>	  LOC = H15;
+  NET  AM_I<5>	  LOC = J12;
+
+  NET  AM_O<8>	     LOC = P6; #CON8
+  NET  AM_O<9>	     LOC = T4; #CON9
+  NET  AM_O<10>	  LOC = P7; #CON10
+  NET  AM_O<11>	  LOC = T5; #CON11
+  NET  AM_O<12>	  LOC = N7; #CON12
+  NET  AM_O<13>	  LOC = R7; #CON13A
+
+  
+#  NET  CON<0>	  LOC = R4;
+#  NET  CON<1>	  LOC = M5;
+#  NET  CON<2>	  LOC = R5;
+#  NET  CON<3>	  LOC = R6;
+#  NET  CON<4>	  LOC = N6;
+#  NET  CON<5>	  LOC = R3;
+#  NET  CON<6>	  LOC = M6;
+#  NET  CON<7>	  LOC = T3;
+#
+#  NET  CON<8>	  LOC = P6;
+#  NET  CON<9>	  LOC = T4;
+#  NET  CON<10>	  LOC = P7;
+#  NET  CON<11>	  LOC = T5;
+#  NET  CON<12>	  LOC = N7;
+#  NET  CON<13>	  LOC = R7;
+#  NET  CON<14>	  LOC = M7;
+#  NET  CON<15>	  LOC = T6;
