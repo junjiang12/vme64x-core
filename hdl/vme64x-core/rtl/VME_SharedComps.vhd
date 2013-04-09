@@ -166,13 +166,37 @@ end RisEdgeDetection;
 
 architecture RTL of RisEdgeDetection is
 	signal s_1: std_logic;
+	constant delay_c :integer := 4;
+	signal cnt :integer:=0;
+	type state_type is (idle,delay); 
+	signal next_s : state_type :=idle; 
+	
 begin
 	process(clk_i)
 	begin
 		if rising_edge(clk_i) then
-			
-			s_1 <= sig_i;
-			
+		
+		s_1 <= sig_i;
+		
+--		case  next_s	is
+--			when idle =>
+--				if s_1 = '0' and sig_i = '1' then
+--					cnt <= 0;
+--					--RisEdge_o <= '1';
+--					next_s <= delay;
+--				else
+--					RisEdge_o <= '0';
+--				end if;
+--				
+--			when delay =>
+--				
+--				if(cnt = delay_c) then
+--					RisEdge_o <= '1';
+--					next_s <= idle;
+--				else
+--					cnt <= cnt +1;
+--				end if;
+--			end case;
 			if s_1 = '0' and sig_i = '1' then
 				RisEdge_o <= '1';
 			else

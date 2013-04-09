@@ -72,18 +72,21 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.all;
 use IEEE.numeric_std.all;
+use work.VME_Buffer_pack.all;
 use work.vme64x_pack.all;
 --===========================================================================
 -- Entity declaration
 --===========================================================================
 entity VME_bus is
-   generic(g_clock         : integer := c_clk_period;
-	        g_wb_data_width : integer := c_width;
-	        g_wb_addr_width : integer := c_addr_width;
-			  g_cram_size     : integer := c_CRAM_SIZE
+   generic(g_clock         : integer    := c_clk_period;
+	        g_wb_data_width : integer    := c_width;
+	        g_wb_addr_width : integer    := c_addr_width;
+			  g_cram_size     : integer    := c_CRAM_SIZE;
+           g_base_addr     : base_addr  := GEOGRAPHICAL_ADDR;
+           g_vme_buffer    : vme_buffer := TRANSPARENT
 	);
    port(
-          clk_i                : in  std_logic;
+          clk_i                : in  std_logic;	  -- 125 Mhz 
           reset_o              : out std_logic;   -- to the Interrupt Generator and IRQ controller
           -- VME signals                                                              
           VME_RST_n_i          : in  std_logic;
@@ -100,12 +103,15 @@ entity VME_bus is
           VME_BERR_o           : out std_logic;
           VME_ADDR_i           : in  std_logic_vector(31 downto 1);  
           VME_ADDR_o           : out std_logic_vector(31 downto 1);
-          VME_ADDR_DIR_o       : out std_logic;
-          VME_ADDR_OE_N_o      : out std_logic;
+			 VME_BUFFER_o         : out t_VME_BUFFER;
+          --VME_ADDR_DIR_o       : out std_logic;
+          --VME_ADDR_OE_N_o      : out std_logic;
+          --VME_ADDR_BUFF_o      : out t_VME_BUFFER;
           VME_DATA_i           : in  std_logic_vector(31 downto 0);   
           VME_DATA_o           : out std_logic_vector(31 downto 0);
-          VME_DATA_DIR_o       : out std_logic;
-          VME_DATA_OE_N_o      : out std_logic;
+          --VME_DATA_DIR_o       : out std_logic;
+          --VME_DATA_OE_N_o      : out std_logic;
+          --VME_DATA_BUFF_o      : out t_VME_BUFFER;
           VME_AM_i             : in  std_logic_vector(5 downto 0);     
           VME_IACK_n_i         : in  std_logic;  -- USE VME_IACK_n_i and NOT VME_IACKIN_n_i !!!!
 			                                        -- because VME_IACKIN_n_i is delayed the more you
@@ -168,10 +174,13 @@ architecture RTL of VME_bus is
 
   -- External buffer signals
    signal s_dtackOE                   : std_logic;
-   signal s_dataDir 						  : std_logic;
-   signal s_dataOE                    : std_logic;
-   signal s_addrDir                   : std_logic;
-   signal s_addrOE                    : std_logic;
+   signal s_buffer                    : t_VME_BUFFER;
+   --signal s_dataBuf                   : t_VME_BUFFER;
+   --signal s_dataDir 			  		    : std_logic;
+   --signal s_dataOE                    : std_logic;
+   --signal s_addrBuf                   : t_VME_BUFFER;
+   --signal s_addrDir                   : std_logic;
+   --signal s_addrOE                    : std_logic;
 
   -- Local data & address
    signal s_locDataIn                 : unsigned(63 downto 0);        
@@ -304,6 +313,7 @@ architecture RTL of VME_bus is
   -- 
    signal s_wbMaster_rst              : std_logic;
    signal s_num_latchDS               : integer;
+
 --===========================================================================
 -- Architecture begin
 --=========================================================================== 
@@ -327,14 +337,18 @@ begin
   --    L  |  L  | B to A                   L    |     L     |   B to Y
   --                                        H    |     L     |A to B, B to Y |
 
-   VME_DATA_DIR_o   <= s_dataDir;  
-   VME_DATA_OE_N_o  <= s_dataOE; 
-   VME_ADDR_DIR_o   <= s_addrDir;            
-   VME_ADDR_OE_N_o  <= s_addrOE;           
-   VME_DTACK_OE_o   <= s_dtackOE;                          --                |
+   --VME_DATA_DIR_o   <= s_dataDir;  
+   --VME_DATA_OE_N_o  <= s_dataOE; 
+   --VME_ADDR_DIR_o   <= s_addrDir;            
+   --VME_ADDR_OE_N_o  <= s_addrOE;           
+   --VME_DATA_BUFF_o  <= s_dataBuf;
+   --VME_ADDR_BUFF_o  <= s_addrBuf;
+   VME_BUFFER_o       <= s_buffer;
+
+   VME_DTACK_OE_o   <= s_dtackOE;
 
   -- VME DTACK: 
-   VME_DTACK_n_o    <= s_mainDTACK; 
+   VME_DTACK_n_o    <= s_mainDTACK;
   --------------------------ACCESS MODE DECODERS----------------------------
   -- Type of data transfer decoder
   -- VME64 ANSI/VITA 1-1994...Table 2-2 "Signal levels during data transfers"
@@ -468,10 +482,13 @@ with s_addressingType select
    s_decode         <= s_FSM.s_decode;
    s_dtackOE        <= s_FSM.s_dtackOE;
    s_mainDTACK      <= s_FSM.s_mainDTACK;
-   s_dataDir        <= s_FSM.s_dataDir;
-   s_dataOE         <= s_FSM.s_dataOE;
-   s_addrDir        <= s_FSM.s_addrDir;  
-   s_addrOE         <= s_FSM.s_addrOE;
+   --s_dataBuf        <= s_FMS.s_dataBuf;
+   --s_addrBuf        <= s_FMS.s_addrBuf;
+   s_buffer         <= s_FSM.s_buffer;
+   --s_dataDir        <= s_FSM.s_dataDir;
+   --s_dataOE         <= s_FSM.s_dataOE;
+   --s_addrDir        <= s_FSM.s_addrDir;  
+   --s_addrOE         <= s_FSM.s_addrOE;
    s_DSlatch        <= s_FSM.s_DSlatch;
    s_incrementAddr  <= s_FSM.s_incrementAddr;
    s_dataPhase      <= s_FSM.s_dataPhase;
@@ -484,6 +501,7 @@ with s_addressingType select
    s_BERR_out       <= s_FSM.s_BERR_out;                        
 
    p_VMEmainFSM : process(clk_i)
+
    begin
       if rising_edge(clk_i) then
          if s_reset = '1' or s_mainFSMreset = '1' then -- FSM resetted after power up,
@@ -491,17 +509,21 @@ with s_addressingType select
                                                        -- on rising edge of AS.
             s_FSM             <=  c_FSM_default;
             s_mainFSMstate    <= IDLE;
+
          else
             case s_mainFSMstate is                            
 
                when IDLE =>
                   s_FSM  <=  c_FSM_default; 
+
                   -- During the Interrupt ack cycle the Slave can't be accessed
                   -- so if VME_IACK_n_i is asserted the FSM is in IDLE state.
                   -- The VME_IACK_n_i signal is asserted by the Interrupt handler
                   -- during all the Interrupt cycle.
                   if s_VMEaddrLatch = '1' and VME_IACK_n_i = '1' then              
-                     s_mainFSMstate <= DECODE_ACCESS; -- if AS falling edge --> go in DECODE_ACCESS
+                     s_mainFSMstate    <= DECODE_ACCESS; -- if AS falling edge --> go in DECODE_ACCESS
+                     s_FSM.s_buffer    <= buffer_function(s_mainFSMstate, s_is_d64, VME_WRITE_n_i);
+
                   else                                                                       
                      s_mainFSMstate <= IDLE;                         
                   end if;
@@ -510,7 +532,9 @@ with s_addressingType select
                   -- check if this slave board is addressed and if it is, check the access mode
                   s_FSM           <=  c_FSM_default;
                   s_FSM.s_decode  <= '1';
-                  s_FSM.s_DSlatch <= '1';		
+                  s_FSM.s_DSlatch <= '1';
+				      s_FSM.s_buffer    <= buffer_function(s_mainFSMstate, s_is_d64, VME_WRITE_n_i);		
+
                   -- uncomment for using 2e modes:						
                   -- if s_addressingType = TWOedge then   -- start 2e transfer
                   -- s_mainFSMstate <= WAIT_FOR_DS_2e;
@@ -526,7 +550,8 @@ with s_addressingType select
                when WAIT_FOR_DS =>         -- wait until DS /= "11"             
                   s_FSM  <=  c_FSM_default; 
                   s_FSM.s_dtackOE        <= '1';
-                  s_FSM.s_addrDir        <= (s_is_d64) and VME_WRITE_n_i;
+                  --s_FSM.s_addrDir        <= (s_is_d64) and VME_WRITE_n_i;
+                  s_FSM.s_buffer         <= buffer_function(s_mainFSMstate, s_is_d64, VME_WRITE_n_i);
                   s_FSM.s_DSlatch        <= '1';
                   s_FSM.s_dataPhase      <= s_dataPhase;
                   s_FSM.s_transferActive <= '1';
@@ -542,8 +567,10 @@ with s_addressingType select
                   -- DS lines not at the same time 
                   s_FSM                  <=  c_FSM_default;                                      
                   s_FSM.s_dtackOE        <= '1';
-                  s_FSM.s_dataDir        <= VME_WRITE_n_i;
-                  s_FSM.s_addrDir        <=  (s_is_d64) and VME_WRITE_n_i;
+                  --s_FSM.s_dataDir        <= VME_WRITE_n_i;
+                  --s_FSM.s_addrDir        <=  (s_is_d64) and VME_WRITE_n_i;
+                  s_FSM.s_buffer         <= buffer_function(s_mainFSMstate, s_is_d64, VME_WRITE_n_i);
+
                   s_FSM.s_DSlatch        <= '1';
                   s_FSM.s_dataPhase      <= s_dataPhase;
                   s_FSM.s_transferActive <= '1';
@@ -558,8 +585,10 @@ with s_addressingType select
                   -- DS lines not at the same time 
                   s_FSM                  <=  c_FSM_default;                                      
                   s_FSM.s_dtackOE        <= '1';
-                  s_FSM.s_dataDir        <= VME_WRITE_n_i;
-                  s_FSM.s_addrDir        <=  (s_is_d64) and VME_WRITE_n_i;
+                  --s_FSM.s_dataDir        <= VME_WRITE_n_i;
+                  --s_FSM.s_addrDir        <=  (s_is_d64) and VME_WRITE_n_i;
+                  s_FSM.s_buffer         <= buffer_function(s_mainFSMstate, s_is_d64, VME_WRITE_n_i);
+
                   s_FSM.s_DSlatch        <= '1';
                   s_FSM.s_dataPhase      <= s_dataPhase;
                   s_FSM.s_transferActive <= '1';
@@ -574,8 +603,10 @@ with s_addressingType select
                   -- DS lines not at the same time 
                   s_FSM                  <=  c_FSM_default;                                      
                   s_FSM.s_dtackOE        <= '1';
-                  s_FSM.s_dataDir        <= VME_WRITE_n_i;
-                  s_FSM.s_addrDir        <=  (s_is_d64) and VME_WRITE_n_i;
+                  --s_FSM.s_dataDir        <= VME_WRITE_n_i;
+                  --s_FSM.s_addrDir        <=  (s_is_d64) and VME_WRITE_n_i;
+                  s_FSM.s_buffer         <= buffer_function(s_mainFSMstate, s_is_d64, VME_WRITE_n_i);
+
                   s_FSM.s_DSlatch        <= '1';
                   s_FSM.s_dataPhase      <= s_dataPhase;
                   s_FSM.s_transferActive <= '1';
@@ -590,8 +621,10 @@ with s_addressingType select
                   -- DS lines not at the same time 
                   s_FSM                  <=  c_FSM_default;                                      
                   s_FSM.s_dtackOE        <= '1';
-                  s_FSM.s_dataDir        <= VME_WRITE_n_i;
-                  s_FSM.s_addrDir        <=  (s_is_d64) and VME_WRITE_n_i;
+                  --s_FSM.s_dataDir        <= VME_WRITE_n_i;
+                  --s_FSM.s_addrDir        <=  (s_is_d64) and VME_WRITE_n_i;
+                  s_FSM.s_buffer         <= buffer_function(s_mainFSMstate, s_is_d64, VME_WRITE_n_i);
+
                   s_FSM.s_DSlatch        <= '1';
                   s_FSM.s_dataPhase      <= s_dataPhase;
                   s_FSM.s_transferActive <= '1';
@@ -602,8 +635,11 @@ with s_addressingType select
                when CHECK_TRANSFER_TYPE =>                    
                   s_FSM                  <=  c_FSM_default;
                   s_FSM.s_dtackOE        <= '1';
-                  s_FSM.s_dataDir        <= VME_WRITE_n_i;
-                  s_FSM.s_addrDir        <=  (s_is_d64) and VME_WRITE_n_i;
+
+                  --s_FSM.s_dataDir        <= VME_WRITE_n_i;
+                  --s_FSM.s_addrDir        <=  (s_is_d64) and VME_WRITE_n_i;
+                  s_FSM.s_buffer         <= buffer_function(s_mainFSMstate, s_is_d64, VME_WRITE_n_i);
+
                   s_FSM.s_dataPhase      <= s_dataPhase;
                   s_FSM.s_transferActive <= '1';
                   if (s_transferType = SINGLE or s_transferType = BLT) and s_addrWidth /= "11"  then
@@ -611,7 +647,7 @@ with s_addressingType select
                      s_FSM.s_memReq <= '1';
                   elsif (s_transferType = MBLT or s_addrWidth = "11") and s_dataPhase = '0' then
                      s_mainFSMstate <= DTACK_LOW;
-                  elsif (s_transferType = MBLT or s_addrWidth = "11") and s_dataPhase = '1' then
+					   elsif (s_transferType = MBLT or s_addrWidth = "11") and s_dataPhase = '1' then
                      s_mainFSMstate <= MEMORY_REQ;
                      s_FSM.s_memReq <= '1';                        
                   end if;
@@ -621,8 +657,10 @@ with s_addressingType select
                   -- generate a pulse on s_memReq signal 
                   s_FSM                   <=  c_FSM_default;
                   s_FSM.s_dtackOE         <= '1';
-                  s_FSM.s_dataDir         <= VME_WRITE_n_i;
-                  s_FSM.s_addrDir         <=  (s_is_d64) and VME_WRITE_n_i;
+                  --s_FSM.s_dataDir         <= VME_WRITE_n_i;
+                  --s_FSM.s_addrDir         <=  (s_is_d64) and VME_WRITE_n_i;
+                  s_FSM.s_buffer         <= buffer_function(s_mainFSMstate, s_is_d64, VME_WRITE_n_i);
+
                   s_FSM.s_dataPhase       <= s_dataPhase;
                   s_FSM.s_transferActive  <= '1';
                   if s_memAck = '1' and s_RW = '0'    then
@@ -641,8 +679,10 @@ with s_addressingType select
                when DATA_TO_BUS =>
                   s_FSM                  <=  c_FSM_default;
                   s_FSM.s_dtackOE        <= '1';
-                  s_FSM.s_dataDir        <= VME_WRITE_n_i;
-                  s_FSM.s_addrDir        <=  (s_is_d64) and VME_WRITE_n_i;
+                  --s_FSM.s_dataDir        <= VME_WRITE_n_i;
+                  --s_FSM.s_addrDir        <=  (s_is_d64) and VME_WRITE_n_i;
+                  s_FSM.s_buffer         <= buffer_function(s_mainFSMstate, s_is_d64, VME_WRITE_n_i);
+
                   s_FSM.s_dataPhase      <= s_dataPhase;
                   s_FSM.s_transferActive <= '1';
                   s_FSM.s_dataToAddrBus  <= s_dataToAddrBus;
@@ -652,8 +692,10 @@ with s_addressingType select
                when DTACK_LOW =>         
                   s_FSM                  <=  c_FSM_default;
                   s_FSM.s_dtackOE        <= '1';
-						s_FSM.s_dataDir        <= VME_WRITE_n_i;
-                  s_FSM.s_addrDir        <= (s_is_d64) and VME_WRITE_n_i;
+						--s_FSM.s_dataDir        <= VME_WRITE_n_i;
+                  --s_FSM.s_addrDir        <= (s_is_d64) and VME_WRITE_n_i;
+                  s_FSM.s_buffer         <= buffer_function(s_mainFSMstate, s_is_d64, VME_WRITE_n_i);
+
                   s_FSM.s_dataPhase      <= s_dataPhase;
                   s_FSM.s_transferActive <= '1';
 						
@@ -667,7 +709,10 @@ with s_addressingType select
 
                   if VME_DS_n_i = "11" then
                      s_mainFSMstate  <= DECIDE_NEXT_CYCLE;
-							s_FSM.s_dataDir <= '0';
+							-- REVISAR --
+							-- s_FSM.s_buffer         <= buffer_function(ADDRES_ONLY, s_is_d64, VME_WRITE_n_i);
+							-- REVISAR --
+							--s_FSM.s_buffer.s_dataDir <= '0';
                   else
                      s_mainFSMstate <= DTACK_LOW;
                   end if;
@@ -675,7 +720,9 @@ with s_addressingType select
                when DECIDE_NEXT_CYCLE =>
                   s_FSM                  <=  c_FSM_default;
                   s_FSM.s_dtackOE        <= '1';
-                  s_FSM.s_addrDir        <=  (s_is_d64) and VME_WRITE_n_i;
+                  --s_FSM.s_addrDir        <=  (s_is_d64) and VME_WRITE_n_i;
+                  s_FSM.s_buffer         <= buffer_function(s_mainFSMstate, s_is_d64, VME_WRITE_n_i);
+
                   s_FSM.s_dataPhase      <= s_dataPhase;
                   s_FSM.s_transferActive <= '1';
                   if (s_transferType = SINGLE and s_addrWidth /= "11") or 
@@ -693,7 +740,9 @@ with s_addressingType select
                when INCREMENT_ADDR =>
                   s_FSM                  <=  c_FSM_default;
                   s_FSM.s_dtackOE        <= '1';
-                  s_FSM.s_addrDir        <=  (s_is_d64) and VME_WRITE_n_i;
+                  --s_FSM.s_addrDir        <=  (s_is_d64) and VME_WRITE_n_i;
+                  s_FSM.s_buffer         <= buffer_function(s_mainFSMstate, s_is_d64, VME_WRITE_n_i);
+
                   s_FSM.s_dataPhase      <= s_dataPhase;
                   s_FSM.s_transferActive <= '1';
                   s_FSM.s_incrementAddr  <= '1';
@@ -702,14 +751,16 @@ with s_addressingType select
                when SET_DATA_PHASE =>                              
                   s_FSM                  <=  c_FSM_default;
                   s_FSM.s_dtackOE        <= '1';
-                  s_FSM.s_addrDir        <=  (s_is_d64) and VME_WRITE_n_i;
+                  --s_FSM.s_addrDir        <=  (s_is_d64) and VME_WRITE_n_i;
+                  s_FSM.s_buffer         <= buffer_function(s_mainFSMstate, s_is_d64, VME_WRITE_n_i);
                   s_FSM.s_dataPhase      <= '1';
                   s_FSM.s_transferActive <= '1';
                   s_mainFSMstate         <= WAIT_FOR_DS;       
 
                when others =>
-                  s_FSM              <=  c_FSM_default;
-                  s_mainFSMstate     <= IDLE;
+                  s_FSM              		<=  c_FSM_default;
+                  s_mainFSMstate     		<= IDLE;
+
 
             end case;
          end if;
@@ -1135,7 +1186,7 @@ with s_addressingType select
   s_wbMaster_rst <= s_reset or s_mainFSMreset;
   Inst_Wb_master: VME_Wb_master 
                                generic map(
-                                         g_wb_data_width         => g_wb_data_width,
+                                         g_wb_data_width    => g_wb_data_width,
 				                             g_wb_addr_width    => g_wb_addr_width 
                                          )
                                 port map(
@@ -1266,10 +1317,10 @@ with s_addressingType select
 
   -----------------------CR/CSR IN/OUT----------------------------------------|
 
-  en_wr_CSR <= '1' when ((s_typeOfDataTransfer = D08_3 or s_typeOfDataTransfer = D32 or 
-                s_typeOfDataTransfer = D16_23 or (s_typeOfDataTransfer = D64 and 
-                s_transferType /= MBLT)) and s_memReq = '1' and 
-                s_confAccess = '1' and s_RW = '0') else '0';
+  en_wr_CSR <= '1' when (
+  (s_typeOfDataTransfer = D08_3 or s_typeOfDataTransfer = D32 or s_typeOfDataTransfer = D16_23 or 
+  (s_typeOfDataTransfer = D64 and s_transferType /= MBLT)) and 
+  s_memReq = '1' and s_confAccess = '1' and s_RW = '0') else '0';
 
   CrCsrOffsetAddr <= std_logic_vector(s_CrCsrOffsetAddr);
 
@@ -1437,14 +1488,14 @@ with s_addressingType select
     end if;
   end process;
   
-	leds(6) <= not ModuleEnable;
-   leds(2) <= '1';   
-   leds(7) <= s_counter(25);
-   leds(5) <= s_led5;
-   leds(4) <= not s_errorflag;                
-   leds(1) <= '1';
-   leds(3) <= '1'; 
-   leds(0) <= '1'; 
+--	leds(7) <= '0';
+--   leds(6) <= '0';
+--   leds(5) <= '0';
+	leds(4) <= s_RW;
+   leds(3) <= s_memAck;
+   leds(2) <= s_VMEaddrLatch;
+   leds(1) <= s_mainFSMreset; 
+   leds(0) <= s_reset; 
 
  -------------------------------------------------------------------------------------------  
  -- This process implements a simple 26 bit counter. If the bitstream file has been downloaded

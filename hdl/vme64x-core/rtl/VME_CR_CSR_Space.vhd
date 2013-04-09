@@ -296,6 +296,9 @@ s_CR_Space <= f_set_CR_space(g_BoardID, g_CRspace, g_ManufacturerID, g_RevisionI
             s_CSRarray(TIME2_ns) <= unsigned(transfTime(23 downto 16));
             s_CSRarray(TIME3_ns) <= unsigned(transfTime(31 downto 24));
             s_CSRarray(TIME4_ns) <= unsigned(transfTime(39 downto 32));
+				--TEST
+				s_CSRarray(BIT_SET_CLR_REG) <= b"00010000";
+				
          end if;
       end if;	
    end process;

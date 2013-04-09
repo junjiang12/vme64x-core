@@ -98,13 +98,16 @@
   use IEEE.numeric_std.all;
   use work.vme64x_pack.all;
   use work.VME_CR_pack.all;
+  use work.VME_Buffer_pack.all;
+
 --===========================================================================
 -- Entity declaration
 --===========================================================================
   entity VME64xCore_Top is
     generic(
 	         -- clock period (ns)
-				g_clock          : integer := c_clk_period;        -- 100 MHz 
+				--g_clock          : integer := c_clk_period;        -- 100 MHz 
+				g_clock          : integer := 50;        -- 100 MHz 
 	         --WB data width:
 				g_wb_data_width  : integer := c_width;             -- must be 32 or 64
 	         --WB address width:
@@ -122,11 +125,11 @@
 				g_RevisionID     : integer := c_RevisionID;        -- 4 bytes: 0x00000001
 				-- Program ID: this is the firmware ID
 				-- loc: 0x7f    CR space
-				g_ProgramID      : integer := 90                   -- 1 byte : 0x5a 
+				g_ProgramID      : integer := 90;                  -- 1 byte : 0x5a 
             -- VME base address setting 
-            g_base_addr      : base_addr  := "GEOGRAPHICAL_ADDR"  -- or MECAHNICALLY
+            g_base_addr      : base_addr  := MECHANICALLY;   -- or GEOGRAPHICAL_ADDR
             -- the bus transceiver function e.g. SN74VMEH22501 or SN54LVTH18502A
-            g_vme_buffer     : vme_buffer := "TRUE_TRANSPARENT"    -- or  CLOCKED
+            g_vme_buffer     : vme_buffer := CLOCKED         -- or  TRUE_TRANSPARENT
 
 	 );
    port(
@@ -158,10 +161,16 @@
 
      -- VME buffers
      VME_DTACK_OE_o   : out   std_logic;
-     VME_DATA_DIR_o   : out   std_logic;
-     VME_DATA_OE_N_o  : out   std_logic;
-     VME_ADDR_DIR_o   : out   std_logic;
-     VME_ADDR_OE_N_o  : out   std_logic;
+     
+     --VME_DATA_BUFF_o  : out   t_VME_BUFFER;                                          
+     --VME_ADDR_BUFF_o  : out   t_VME_BUFFER;
+     VME_BUFFER_o     : out   t_VME_BUFFER;
+
+     --VME_DATA_DIR_o   : out   std_logic;
+     --VME_DATA_OE_N_o  : out   std_logic;
+     --VME_ADDR_DIR_o   : out   std_logic;
+     --VME_ADDR_OE_N_o  : out   std_logic;
+
      VME_RETRY_OE_o   : out   std_logic;
      
 	  -- WishBone
@@ -213,8 +222,12 @@
   signal s_VME_DTACK_IRQ           : std_logic;
   signal s_VME_DTACK_OE_VMEbus     : std_logic;
   signal s_VME_DTACK_OE_IRQ        : std_logic;
-  signal s_VME_DATA_DIR_VMEbus     : std_logic;
-  signal s_VME_DATA_DIR_IRQ        : std_logic;
+  --signal s_VME_DATA_DIR_VMEbus     : std_logic;
+  --signal s_VME_DATA_BUFF_VMEbus    : t_VME_BUFFER;
+  --signal s_VME_DATA_DIR_IRQ        : std_logic;
+  --signal s_VME_DATA_BUFF_IRQ       : t_VME_BUFFER;
+  signal s_VME_BUFFER_VMEbus       : t_VME_BUFFER;
+  signal s_VME_BUFFER_IRQ          : t_VME_BUFFER;
   signal s_INT_Level               : std_logic_vector(7 downto 0);
   signal s_INT_Vector              : std_logic_vector(7 downto 0);
   signal s_VME_IRQ_n_o             : std_logic_vector(6 downto 0);
@@ -261,8 +274,7 @@ begin
 ---------------------METASTABILITY-----------------------------------------
   -- Input oversampling & edge detection; oversampling the input data is necessary to avoid 
   -- metastability problems. With 3 samples the probability of metastability problem will 
-  -- be very low but of course the transfer rate will be slow down a little.
-  
+  -- be very low but of course the transfer rate will be slow down a little. 
   GAinputSample : RegInputSample
   generic map(
               width => 6
@@ -271,7 +283,7 @@ begin
              reg_i => VME_GA_i,
              reg_o => VME_GA_oversampled,
              clk_i => clk_i
-         );
+           );
 
 --  DSinputSample : RegInputSample
   RegInputSample : process(clk_i)
@@ -298,7 +310,7 @@ begin
             sig_i => VME_AS_n_i,
             sig_o => VME_AS_n_oversampled,
             clk_i => clk_i
-        );		  
+        );
 
   RSTinputSample : SigInputSample
   port map(
@@ -353,12 +365,15 @@ begin
 		 VME_BERR_o           => VME_BERR_o,
 		 VME_ADDR_i           => VME_ADDR_i,
 		 VME_ADDR_o           => VME_ADDR_o,
-		 VME_ADDR_DIR_o       => VME_ADDR_DIR_o,
-		 VME_ADDR_OE_N_o      => VME_ADDR_OE_N_o,
+       VME_BUFFER_o         => s_VME_BUFFER_VMEbus,
+       --VME_ADDR_BUFF_o      => VME_ADDR_BUFF_o
+		 --VME_ADDR_DIR_o       => VME_ADDR_DIR_o,
+		 --VME_ADDR_OE_N_o      => VME_ADDR_OE_N_o,
 		 VME_DATA_i           => VME_DATA_i,
 		 VME_DATA_o           => s_VME_DATA_VMEbus,
-		 VME_DATA_DIR_o       => s_VME_DATA_DIR_VMEbus,
-		 VME_DATA_OE_N_o      => VME_DATA_OE_N_o,
+       --VME_DATA_BUFF_o      => s_VME_DATA_BUFF_VMEbus
+		 --VME_DATA_DIR_o       => s_VME_DATA_DIR_VMEbus,
+		 --VME_DATA_OE_N_o      => VME_DATA_OE_N_o,
 		 VME_AM_i             => VME_AM_i,
 		 VME_IACK_n_i         => VME_IACK_n_oversampled,
 		 -- WB
@@ -406,7 +421,8 @@ begin
 			 
 ---------------------------------------------------------------------------------
     -- output
-    VME_IRQ_o        <= not s_VME_IRQ_n_o; --The buffers will invert again the logic level
+    --VME_IRQ_o        <= not s_VME_IRQ_n_o; --The buffers will invert again the logic level
+	 VME_IRQ_o        <= s_VME_IRQ_n_o; 		-- My buffers doesn't invert the logic!!!!!
     WE_o             <= not s_RW;   
     reset_o          <= s_reset;
     INT_ack_o        <= s_VME_DTACK_IRQ;
@@ -418,8 +434,16 @@ begin
                         s_VME_DTACK_IRQ;		
     VME_DTACK_OE_o   <= s_VME_DTACK_OE_VMEbus   when  VME_IACK_n_oversampled ='1' else 
                         s_VME_DTACK_OE_IRQ;					
-    VME_DATA_DIR_o   <= s_VME_DATA_DIR_VMEbus   when  VME_IACK_n_oversampled ='1' else 
-                        s_VME_DATA_DIR_IRQ;					
+    --VME_DATA_DIR_o   <= s_VME_DATA_DIR_VMEbus   when  VME_IACK_n_oversampled ='1' else 
+    --                    s_VME_DATA_DIR_IRQ;					
+    --VME_DATA_BUFF_o  <= s_VME_DATA_BUFF_VMEbus   when  VME_IACK_n_oversampled ='1' else 
+    --                    s_VME_DATA_DIR_IRQ;
+    VME_BUFFER_o     <= s_VME_BUFFER_VMEbus     when  VME_IACK_n_oversampled ='1' else 
+                        s_VME_BUFFER_IRQ;
+
+
+
+
 --------------------------------------------------------------------------------
     --  Interrupter
    Inst_VME_IRQ_Controller: VME_IRQ_Controller port map(
@@ -439,10 +463,13 @@ begin
          		 VME_DTACK_n_o     => s_VME_DTACK_IRQ,
          		 VME_DTACK_OE_o    => s_VME_DTACK_OE_IRQ,
          		 VME_DATA_o        => s_VME_DATA_IRQ,
-         		 VME_DATA_DIR_o    => s_VME_DATA_DIR_IRQ
+         		 --VME_DATA_DIR_o    => s_VME_DATA_DIR_IRQ
+                --VME_DATA_BUFF_o   => s_VME_DATA_BUFF_IRQ
+                VME_BUFFER_o      => s_VME_BUFFER_IRQ
                   	);
     
     s_reset_IRQ    <= not(s_reset);
+--------------------------------------------------------------------------
 --------------------------------------------------------------------------
     --CR/CSR space
    Inst_VME_CR_CSR_Space: VME_CR_CSR_Space 

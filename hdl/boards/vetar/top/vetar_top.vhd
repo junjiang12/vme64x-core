@@ -85,6 +85,7 @@ use work.vme64x_pack.all;
 use work.genram_pkg.all;
 use work.VME_CR_pack.all;
 use work.wr_altera_pkg.all;
+use work.VME_Buffer_pack.all;
 
 --===========================================================================
 -- Entity declaration
@@ -107,33 +108,46 @@ generic(
 	     );
 port(
     clk_i            : in    std_logic;    	 
-    Reset            : in    std_logic;  -- hand reset; button PB1
+    Reset            : in    std_logic;  
    	-- VME                            
     VME_AS_n_i       : in    std_logic;
     VME_RST_n_i      : in    std_logic;
     VME_WRITE_n_i    : in    std_logic;
     VME_AM_i         : in    std_logic_vector(5 downto 0);
     VME_DS_n_i       : in    std_logic_vector(1 downto 0);
-    VME_GA_i         : in    std_logic_vector(5 downto 0);
-    VME_BERR_o       : out   std_logic;
-    VME_DTACK_n_o    : out   std_logic;
+    --VME_GA_i         : in    std_logic_vector(5 downto 0);
     VME_RETRY_n_o    : out   std_logic;  
-    VME_LWORD_n_b    : inout std_logic;
-    VME_ADDR_b       : inout std_logic_vector(31 downto 1);
-    VME_DATA_b       : inout std_logic_vector(31 downto 0);
-    VME_IRQ_n_o      : out   std_logic_vector(6 downto 0);
+	 VME_RETRY_OE_o   : out   std_logic;
+    --VME_LWORD_n_b    : inout std_logic;
+    VME_ADDR_DATA_b  : inout std_logic_vector(31 downto 0);
+    --VME_ADDR_b       : inout std_logic_vector(31 downto 1);
+    --VME_DATA_b       : inout std_logic_vector(31 downto 0);
     VME_IACKIN_n_i   : in    std_logic;
     VME_IACKOUT_n_o  : out   std_logic;
     VME_IACK_n_i     : in    std_logic;  
-    -- VME buffers
-	 VME_RETRY_OE_o   : out   std_logic;
+    -- IRQ buffers
+    VME_IRQ_n_o      : out   std_logic_vector(6 downto 0);
+	 
+    VME_BERR_o       : out   std_logic;
     VME_DTACK_OE_o   : out   std_logic;
-    VME_DATA_DIR_o   : out   std_logic;
-    VME_DATA_OE_N_o  : out   std_logic;
-    VME_ADDR_DIR_o   : out   std_logic;
-    VME_ADDR_OE_N_o  : out   std_logic;
+	 VME_BUFFER_LATCH_o : out   std_logic;
+    --VME_ADDR_L_AB_o  : out   std_logic;
+    --VME_ADDR_L_BA_o  : out   std_logic;
 	 -- for debug:
-	 leds             : out   std_logic_vector(7 downto 0)
+	 leds             : out   std_logic_vector(7 downto 0);
+	 --VME_DTACK_n_o    : out   std_logic;
+    --
+    VME_DATA_CLK_AB_o: out   std_logic;
+    VME_DATA_CLK_BA_o: out   std_logic;
+    VME_DATA_OE_AB_o : out   std_logic;
+    VME_DATA_OE_BA_o : out   std_logic;
+    --VME_DATA_L_AB_o  : out   std_logic;
+    --VME_DATA_L_BA_o  : out   std_logic;
+    --
+    VME_ADDR_CLK_AB_o: out   std_logic;
+    VME_ADDR_CLK_BA_o: out   std_logic;
+    VME_ADDR_OE_AB_o : out   std_logic;
+    VME_ADDR_OE_BA_o : out   std_logic
 	 );
 
 end vetar_top;
@@ -171,16 +185,19 @@ component VME64xCore_Top is
 		VME_DATA_i      : in    std_logic_vector(31 downto 0); 
 		VME_DATA_o      : out   std_logic_vector(31 downto 0); 
 		VME_BERR_o      : out   std_logic;
-		VME_DTACK_n_o   : out   std_logic;
 		VME_RETRY_n_o   : out   std_logic;
 		VME_RETRY_OE_o  : out   std_logic;
 		VME_IRQ_o       : out   std_logic_vector(6 downto 0);
 		VME_IACKOUT_n_o : out   std_logic;
+		
+		VME_DTACK_n_o   : out   std_logic;
 		VME_DTACK_OE_o  : out   std_logic;
-		VME_DATA_DIR_o  : out   std_logic;
-		VME_DATA_OE_N_o : out   std_logic;
-		VME_ADDR_DIR_o  : out   std_logic;
-		VME_ADDR_OE_N_o : out   std_logic;
+		
+		VME_Buffer_o    : out   t_VME_BUFFER;
+      --VME_DATA_DIR_o  : out   std_logic;
+		--VME_DATA_OE_N_o : out   std_logic;
+		--VME_ADDR_DIR_o  : out   std_logic;
+		--VME_ADDR_OE_N_o : out   std_logic;
 		-- WB signals
 		DAT_i           : in    std_logic_vector(g_wb_data_width - 1 downto 0);
 		ERR_i           : in    std_logic;
@@ -251,7 +268,7 @@ generic(
 		m_we_o    : out std_logic
 		);
 end component WB_Bridge;
-	
+
 signal WbDat_i                   : std_logic_vector(g_wb_data_width - 1 downto 0);
 signal WbDat_o                   : std_logic_vector(g_wb_data_width - 1 downto 0);
 signal WbAdr_o                   : std_logic_vector(g_wb_addr_width - 1 downto 0);
@@ -283,17 +300,71 @@ signal clk_in                    : std_logic;
 signal s_INT_ack                 : std_logic;
 signal s_rst                     : std_logic;
 
+signal s_VME_Buffer              : t_VME_BUFFER;
+signal s_buffer_clk              : std_logic;  
+
+signal s_VME_DTACK_OE_o   			: std_logic;
+signal s_VME_DTACK_n_o    			: std_logic;
+signal s_VME_LWORD_n_o           : std_logic;
+signal s_VME_LWORD_n_i           : std_logic;
+signal s_VME_BERR_o 		   	   : std_logic;
 --mux
-signal s_VME_DATA_b_o            : std_logic_vector(31 downto 0);
-signal s_VME_DATA_DIR            : std_logic;
-signal s_VME_ADDR_DIR            : std_logic;
-signal s_VME_ADDR_b_o            : std_logic_vector(31 downto 1);
-signal s_VME_LWORD_n_b_o         : std_logic;
+signal s_VME_ADDR_32_b           : std_logic_vector(31 downto 0);
+signal s_VME_DATA_o              : std_logic_vector(31 downto 0);
+signal s_VME_ADDR_o              : std_logic_vector(31 downto 1);
+
+--signal s_VME_DATA_DIR            : std_logic;
+--signal s_VME_ADDR_DIR            : std_logic;
 --===========================================================================
 -- Architecture begin
 --===========================================================================
 begin
+---------------------------------------------------------------------------------  
+    -- DATA & ADDR BUS
+    VME_ADDR_DATA_b    <= s_VME_DATA_o								when s_VME_Buffer.s_buffer_eo = DATA_BUFF and 
+																					  s_VME_Buffer.s_dataDir = FPGA2VME else
+								  (s_VME_ADDR_o & s_VME_LWORD_n_o)	when s_VME_Buffer.s_buffer_eo = ADDR_BUFF and 
+																					  s_VME_Buffer.s_addrDir = FPGA2VME else
+								  (others => 'Z');
+                          
+								  
+--- FIXME when the 64 is implemented go for it
 
+--   s_VME_DATA_b       <= s_VME_DATA_b_o           					when s_VME_Buffer.s_dataDir = '0' else 
+--                          (others => 'Z');
+--
+--   s_VME_ADDR_b       <= (s_VME_ADDR_b_o & s_VME_LWORD_n_b_o)   	when s_VME_Buffer.s_addrDir = '0' else 
+--                         (others => 'Z');
+
+---------------------------------------------------------------------------------	 
+   s_VME_LWORD_n_i	<= VME_ADDR_DATA_b(0);	
+----------------------------------------------------------------------------------
+	VME_DTACK_OE_o		<= s_VME_DTACK_n_o	when s_VME_DTACK_OE_o = '1' else
+								'1';
+	--VME_DTACK_OE_o 	<= s_VME_DTACK_OE_o xor s_VME_DTACK_n_o;
+	--VME_DTACK_OE_o 	<= s_VME_DTACK_n_o;
+----------------------------------------------------------------------------------
+	VME_BERR_o			<=	not s_VME_BERR_o; -- the logic in the core is inversed because their buffers invert the signal..
+	-------------------------------------------------------------------------------
+buffer_ctrl:   VME_Buffer_ctrl
+   port map( 
+         clk_i            =>  clk_in,
+         rst_i            =>  VME_RST_n_i,
+         buffer_stat_i    =>  s_VME_Buffer,
+         buffer_clk_o     =>  s_buffer_clk,
+         data_buff_v2f_o  =>  VME_DATA_OE_AB_o,
+         data_buff_f2v_o  =>  VME_DATA_OE_BA_o,
+         addr_buff_v2f_o  =>  VME_ADDR_OE_AB_o,
+         addr_buff_f2v_o  =>  VME_ADDR_OE_BA_o,
+         latch_buff_o     =>  VME_BUFFER_LATCH_o
+      );
+
+    VME_DATA_CLK_AB_o   <= s_buffer_clk;
+    VME_DATA_CLK_BA_o   <= s_buffer_clk;
+    VME_ADDR_CLK_AB_o   <= s_buffer_clk;
+    VME_ADDR_CLK_BA_o   <= s_buffer_clk;
+ 
+---------------------------------------------------------------------------------
 Inst_VME64xCore_Top: VME64xCore_Top 
 generic map(
               g_clock          => g_clock,
@@ -309,31 +380,36 @@ port map(
       -- VME
 		clk_i           => clk_in,
 		VME_AS_n_i      => VME_AS_n_i,
-		VME_RST_n_i     => Rst,
+		--VME_RST_n_i     => Rst,
+		VME_RST_n_i     => VME_RST_n_i,
 		VME_WRITE_n_i   => VME_WRITE_n_i,
 		VME_AM_i        => VME_AM_i,
 		VME_DS_n_i      => VME_DS_n_i,
-		VME_GA_i        => VME_GA_i,
-		VME_BERR_o      => VME_BERR_o,
-		VME_DTACK_n_o   => VME_DTACK_n_o,
+		--VME_GA_i        => VME_GA_i,
+		VME_GA_i        => "110111",
+		VME_BERR_o      => s_VME_BERR_o,
+		VME_DTACK_n_o   => s_VME_DTACK_n_o,
 		VME_RETRY_n_o   => VME_RETRY_n_o,		
-		VME_LWORD_n_i   => VME_LWORD_n_b,
-		VME_LWORD_n_o   => s_VME_LWORD_n_b_o,
-		VME_ADDR_i      => VME_ADDR_b,
-		VME_ADDR_o      => s_VME_ADDR_b_o,
-		VME_DATA_i      => VME_DATA_b,
-		VME_DATA_o      => s_VME_DATA_b_o,
+		--VME_LWORD_n_i   => VME_LWORD_n_b,
+		--VME_LWORD_n_o   => s_VME_LWORD_n_b_o,
+		VME_LWORD_n_i   => s_VME_LWORD_n_i,
+		VME_LWORD_n_o   => s_VME_LWORD_n_o,
+		VME_ADDR_i      => VME_ADDR_DATA_b(31 downto 1),--s_VME_ADDR_b,
+		VME_ADDR_o      => s_VME_ADDR_o,
+		VME_DATA_i      => VME_ADDR_DATA_b,--s_VME_DATA_b,
+		VME_DATA_o      => s_VME_DATA_o,
 		VME_IRQ_o       => VME_IRQ_n_o,
 		VME_IACKIN_n_i  => VME_IACKIN_n_i,
 		VME_IACK_n_i    => VME_IACK_n_i,
 		VME_IACKOUT_n_o => VME_IACKOUT_n_o,
 		-- buffer
-		VME_DTACK_OE_o  => VME_DTACK_OE_o,
-		VME_DATA_DIR_o  => s_VME_DATA_DIR,
-		VME_DATA_OE_N_o => VME_DATA_OE_N_o,
-		VME_ADDR_DIR_o  => s_VME_ADDR_DIR,
-		VME_ADDR_OE_N_o => VME_ADDR_OE_N_o,
+		VME_DTACK_OE_o  => s_VME_DTACK_OE_o,
 		VME_RETRY_OE_o  => VME_RETRY_OE_o,
+		--VME_DATA_DIR_o  => s_VME_DATA_DIR,
+		--VME_DATA_OE_N_o => VME_DATA_OE_N_o,
+		--VME_ADDR_DIR_o  => s_VME_ADDR_DIR,
+		--VME_ADDR_OE_N_o => VME_ADDR_OE_N_o,
+      VME_Buffer_o    => s_VME_Buffer,
 		--WB
 		DAT_i           => WbDat_i,  
 		DAT_o           => WbDat_o,  
@@ -410,21 +486,12 @@ port map(
 		m_dat_i   => WbMemDat_o
 	);
 	
-  Rst <= VME_RST_n_i and Reset;
----------------------------------------------------------------------------------  
-    -- buffers                                                         
-    VME_DATA_b       <= s_VME_DATA_b_o    when s_VME_DATA_DIR = '1' else (others => 'Z');
-    VME_ADDR_b       <= s_VME_ADDR_b_o    when s_VME_ADDR_DIR = '1' else (others => 'Z');
-    VME_LWORD_n_b    <= s_VME_LWORD_n_b_o when s_VME_ADDR_DIR = '1' else 'Z';
----------------------------------------------------------------------------------	 
-	 -- Outputs:
-	 VME_ADDR_DIR_o   <= s_VME_ADDR_DIR;
-	 VME_DATA_DIR_o   <= s_VME_DATA_DIR;
----------------------------------------------------------------------------------	 
+  --Rst <= VME_RST_n_i and Reset;\
+  Rst	<= VME_RST_n_i;
+--------------------------------------------------------------------------------	 
  vme_pll_inst : vme_pll port map(
-      inclk0 => clk_i,               -- 20Mhz 
-      c0     => open,	             -- 50 Mhz
-      c1     => clk_in,              -- 100 Mhz
+      inclk0 => clk_i,               -- 125Mhz 
+      c0     => clk_in,	             -- 62.5 Mhz
       locked => locked);
 
 end Behavioral;

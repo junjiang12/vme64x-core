@@ -122,7 +122,8 @@ entity VME_IRQ_Controller is
           VME_DTACK_n_o    : out  std_logic;
           VME_DTACK_OE_o   : out  std_logic;
           VME_DATA_o       : out  std_logic_vector (31 downto 0);
-          VME_DATA_DIR_o   : out  std_logic);
+--        VME_DATA_DIR_o   : out  std_logic);
+          VME_BUFFER_o     : out  t_VME_BUFFER);
 end VME_IRQ_Controller;
 --===========================================================================
 -- Architecture declaration
@@ -185,7 +186,7 @@ begin
    DataDirOutputSample : process(clk_i)
 	begin
 		if rising_edge(clk_i) then	 
-			VME_DATA_DIR_o <= s_FSM_IRQ.s_DataDir;
+			--VME_DATA_DIR_o <= s_FSM_IRQ.s_DataDir;
 		end if;	
 	end process; 
 	
@@ -346,13 +347,13 @@ begin
           
       when  DATA_OUT=>	  
 		    s_FSM_IRQ             <= c_FSM_IRQ;
-		    s_FSM_IRQ.s_DataDir   <= '1';
+		    --s_FSM_IRQ.s_DataDir   <= '1';
 			 s_FSM_IRQ.s_resetIRQ  <= '0';
 			 s_FSM_IRQ.s_DTACK_OE   <= '1';
 
       when  DTACK=>	
 	     	 s_FSM_IRQ             <= c_FSM_IRQ;
-			 s_FSM_IRQ.s_DataDir   <= '1';
+			 --s_FSM_IRQ.s_DataDir   <= '1';
 			 s_FSM_IRQ.s_DTACK     <= '0';
 			 s_FSM_IRQ.s_DTACK_OE   <= '1';
 			 		

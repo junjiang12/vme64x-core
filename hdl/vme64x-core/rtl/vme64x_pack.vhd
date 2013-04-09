@@ -36,6 +36,19 @@ package vme64x_pack is
          len : integer;
       end record;
    type t_cr_add_table is array (natural range <>) of t_rom_cell;
+   
+   type vme_buffer_eo is  (      ADDR_BUFF,
+                                 DATA_BUFF,
+                                 DATA_ADDR_BUFF);
+  
+   type t_VME_BUFFER is
+      record
+			s_addrDir      :  std_logic;
+			s_dataDir      :  std_logic;
+			s_clk          :  std_logic;
+         s_buffer_eo    :  vme_buffer_eo;
+         s_latch_oe     :  std_logic;
+	end record;
 
    type t_FSM is
       record
@@ -43,10 +56,13 @@ package vme64x_pack is
          s_decode         :  std_logic;
          s_dtackOE        :  std_logic;
          s_mainDTACK      :  std_logic;
-         s_dataDir        :  std_logic;
-         s_dataOE         :  std_logic;
-         s_addrDir        :  std_logic;
-         s_addrOE         :  std_logic;
+         s_buffer         :  t_VME_BUFFER;
+         --s_dataBuf        :  t_VME_BUFFER;
+         --s_addrBuf        :  t_VME_BUFFER;
+         --s_dataDir        :  std_logic;
+         --s_dataOE         :  std_logic;
+         --s_addrDir        :  std_logic;
+         --s_addrOE         :  std_logic;
          s_DSlatch        :  std_logic;
          s_incrementAddr  :  std_logic;
          s_dataPhase      :  std_logic;
@@ -57,27 +73,30 @@ package vme64x_pack is
          s_retry          :  std_logic;
          s_berr           :  std_logic;
          s_BERR_out       :  std_logic;
-      end record;
+   end record;
 		
    type t_FSM_IRQ is
       record
 			s_IACKOUT   :  std_logic;
-			s_DataDir   :  std_logic; 
+			--s_DataDir   :  std_logic; 
+         s_buffer    :  t_VME_BUFFER;
 			s_DTACK     :  std_logic;
 			s_enableIRQ :  std_logic;
 			s_resetIRQ  :  std_logic;
 			s_DSlatch   :  std_logic;
 			s_DTACK_OE  :  std_logic;
-	end record;
+	end record;   
+   
   --_______________________________________________________________________________
   -- Constants:
   --WB data width:
-   constant c_width          : integer := 64; --must be 32 or 64!
+   constant c_width          : integer := 32; --must be 32 or 64!
 	--CRAM size in the CR/CSR space (bytes):
 	constant c_CRAM_SIZE      : integer := 1024; 
 	-- remember to set properly the "END_CRAM" register in the CR space
-  -- WB addr width:
-	constant c_addr_width     : integer := 9;
+   -- WB addr width:
+	--constant c_addr_width     : integer := 9;
+	constant c_addr_width     : integer := 32;
 	--
    constant DFS              : integer := 2;    -- for accessing at the ADEM's bit 2
    constant XAM_MODE         : integer := 0;  -- for accessing at the ADER's bit 0
@@ -208,6 +227,13 @@ package vme64x_pack is
    FUNC_XAMCAP => (add => 16#088#, len => 256),
    FUNC_ADEM   => (add => 16#188#, len => 32));
   
+  constant c_buffer_default : t_VME_BUFFER :=(
+			s_addrDir      =>  '0',
+			s_dataDir      =>  '0',
+			s_clk          =>  '0',
+         s_buffer_eo    => ADDR_BUFF,
+         s_latch_oe     =>  '0'
+);
    -- Main Finite State machine signals default:
 	-- When the S_FPGA detects the magic sequency, it erases the A_FPGA so 
 	-- I don't need to drive the s_dtackOE, s_dataOE, s_addrOE, s_addrDir, s_dataDir 
@@ -219,10 +245,11 @@ package vme64x_pack is
    s_decode         => '0',
    s_dtackOE        => '0',  
    s_mainDTACK      => '1',
-   s_dataDir        => '0',
-   s_dataOE         => '0',
-   s_addrDir        => '0',  -- during IACK cycle the ADDR lines are input
-   s_addrOE         => '0',
+   s_buffer         => c_buffer_default,
+   --s_dataDir        => '0',
+   --s_dataOE         => '0',
+   --s_addrDir        => '0',  -- during IACK cycle the ADDR lines are input
+   --s_addrOE         => '0',
    s_DSlatch        => '0',
    s_incrementAddr  => '0',
    s_dataPhase      => '0',
@@ -237,7 +264,8 @@ package vme64x_pack is
 
    constant c_FSM_IRQ : t_FSM_IRQ :=(
 		s_IACKOUT   => '1',
-		s_DataDir   => '0', 
+		--s_DataDir   => '0', 
+      s_buffer    => c_buffer_default,
 		s_DTACK     => '1',
 		s_enableIRQ => '0',
 		s_resetIRQ  => '1',
@@ -295,7 +323,6 @@ package vme64x_pack is
   constant c_BYTES1_addr          : unsigned(19 downto 0) := x"7FF37";
   constant c_WB32bits_addr        : unsigned(19 downto 0) := x"7FF33";
   constant c_Endian_addr          : unsigned(19 downto 0) := x"7FF53";  -- VME64x reserved CSR
-
 --___________________________________________________________________________________________
 -- TYPE:
   type t_typeOfDataTransfer is (  D08_0,   
@@ -394,12 +421,11 @@ package vme64x_pack is
                                   END_INIT
                              );
    type base_addr is   (         GEOGRAPHICAL_ADDR,
-                                 MECAHNICALLY
+                                 MECHANICALLY
                              );
-   type vme_buffer is  (         TRUE_TRANSPARET,
+   type vme_buffer is  (         TRANSPARENT,
                                  CLOCKED
                              );
-
    type t_FUNC_32b_array is array (0 to 7) of unsigned(31 downto 0);  -- ADER register array
    type t_FUNC_64b_array is array (0 to 7) of unsigned(63 downto 0);  -- AMCAP register array
    type t_FUNC_256b_array is array (0 to 7) of unsigned(255 downto 0);  -- XAMCAP register array
@@ -464,11 +490,12 @@ function f_latchDS (clk_period : integer) return integer;
                         VME_DTACK_OE_o       : out std_logic;
                         VME_BERR_o           : out std_logic;
                         VME_ADDR_o           : out std_logic_vector(31 downto 1);
-                        VME_ADDR_DIR_o       : out std_logic;
-                        VME_ADDR_OE_N_o      : out std_logic;
+								VME_BUFFER_o         : out t_VME_BUFFER;
+                        --VME_ADDR_DIR_o       : out std_logic;
+                        --VME_ADDR_OE_N_o      : out std_logic;
                         VME_DATA_o           : out std_logic_vector(31 downto 0);
-                        VME_DATA_DIR_o       : out std_logic;
-                        VME_DATA_OE_N_o      : out std_logic;
+                        --VME_DATA_DIR_o       : out std_logic;
+                        --VME_DATA_OE_N_o      : out std_logic;
                         memReq_o             : out std_logic;
                         wbData_o             : out std_logic_vector(g_wb_data_width - 1 downto 0);
                         locAddr_o            : out std_logic_vector(g_wb_addr_width - 1 downto 0);
@@ -831,7 +858,8 @@ function f_latchDS (clk_period : integer) return integer;
                         VME_DTACK_n_o   : out std_logic;
                         VME_DTACK_OE_o  : out std_logic;
                         VME_DATA_o      : out std_logic_vector(31 downto 0);
-                        VME_DATA_DIR_o  : out std_logic
+                        --VME_DATA_DIR_o  : out std_logic
+								VME_BUFFER_o         : out t_VME_BUFFER
                      );
               end component VME_IRQ_Controller;
 
