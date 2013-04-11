@@ -127,10 +127,11 @@
 				-- loc: 0x7f    CR space
 				g_ProgramID      : integer := 90;                  -- 1 byte : 0x5a 
             -- VME base address setting 
-            g_base_addr      : base_addr  := MECHANICALLY;   -- or GEOGRAPHICAL_ADDR
+            g_base_addr      : base_addr  := MECHANICALLY;     -- or GEOGRAPHICAL_ADDR
             -- the bus transceiver function e.g. SN74VMEH22501 or SN54LVTH18502A
-            g_vme_buffer     : vme_buffer := CLOCKED         -- or  TRUE_TRANSPARENT
-
+            g_vme_buffer     : vme_buffer := CLOCKED;          -- or  TRUE_TRANSPARENT
+            -- sdb address
+            g_vme_sdb_addr   : t_wishbone_address
 	 );
    port(
      clk_i            : in std_logic;              
